@@ -59,6 +59,12 @@ services:
       postgres:
         condition: service_healthy
 
+  # Scale horizontally with `docker compose up -d --scale worker=N`. CONSUMER_NAME
+  # is intentionally NOT set: each replica self-names via the hostname default
+  # (app/config.py: Field(default_factory=socket.gethostname) -> container id), so
+  # every replica is a distinct consumer in the `rollup-workers` group and Redis
+  # distributes entries across them. Pinning CONSUMER_NAME here would make all
+  # replicas share one consumer id and collapse the fan-out.
   worker:
     build:
       context: ./apps/backend
@@ -67,7 +73,6 @@ services:
       DATABASE_URL: postgresql://pulse:pulse@postgres:5432/pulseboard
       REDIS_BUFFER_URL: redis://redis:6379/0
       REDIS_RATELIMIT_URL: redis://redis:6379/1
-      CONSUMER_NAME: worker-1
     depends_on:
       migrate:
         condition: service_completed_successfully
