@@ -7,6 +7,7 @@ Implemented as an atomic Lua script (sliding-window log over a sorted set) on th
 
 from __future__ import annotations
 
+import time
 import uuid
 from dataclasses import dataclass
 
@@ -52,8 +53,6 @@ class RateLimiter:
         self._script = client.register_script(_SLIDING_WINDOW_LUA)
 
     async def check(self, client_ip: str) -> RateLimitResult:
-        import time
-
         now_ms = int(time.time() * 1000)
         allowed, retry_after_ms = await self._script(
             keys=[f"rl:{client_ip}"],

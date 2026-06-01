@@ -34,7 +34,7 @@ SELECT type, SUM(count)::bigint AS count
 FROM rollups
 WHERE tenant = $1 AND bucket >= $2::timestamptz AND bucket < $3::timestamptz
 GROUP BY type
-ORDER BY count DESC
+ORDER BY count DESC, type
 LIMIT $4;
 """
 

@@ -7,8 +7,10 @@ instances in production (see Phase-1-Backend §3, §9).
 
 from __future__ import annotations
 
+import socket
 from functools import lru_cache
 
+from pydantic import Field
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 
@@ -33,7 +35,9 @@ class Settings(BaseSettings):
     # --- Stream / consumer group ---
     events_stream: str = "events"
     consumer_group: str = "rollup-workers"
-    consumer_name: str = "worker-1"
+    # Unique per replica so multiple workers don't share one consumer id. Defaults
+    # to the hostname (pod name in K8s); override with CONSUMER_NAME.
+    consumer_name: str = Field(default_factory=socket.gethostname)
     stream_maxlen: int = 1_000_000  # backstop trim bound (approximate, '~')
 
     # --- Worker batching (freshness vs write-amplification knob) ---

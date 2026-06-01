@@ -60,9 +60,13 @@ def redis_url() -> Iterator[str]:
         yield f"redis://{host}:{port}"
 
 
-@pytest.fixture(scope="session", autouse=True)
+@pytest.fixture(scope="session")
 def _configure_env(postgres_dsn: str, redis_url: str) -> Iterator[None]:
-    """Point Settings + Alembic at the containers and apply migrations once."""
+    """Point Settings + Alembic at the containers and apply migrations once.
+
+    NOT autouse: only fixtures that actually need the databases (via ``settings``)
+    pull this in, so unit-only runs never start containers (plan §13).
+    """
     os.environ["DATABASE_URL"] = postgres_dsn
     os.environ["ALEMBIC_DATABASE_URL"] = postgres_dsn
     os.environ["REDIS_BUFFER_URL"] = f"{redis_url}/0"
@@ -84,7 +88,7 @@ def _configure_env(postgres_dsn: str, redis_url: str) -> Iterator[None]:
 
 
 @pytest.fixture
-def settings():
+def settings(_configure_env):
     from app.config import get_settings
 
     get_settings.cache_clear()

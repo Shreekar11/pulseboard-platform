@@ -44,3 +44,15 @@ async def test_limits_are_per_ip(limiter):
         await limiter.check("3.3.3.3")
     # A different IP is unaffected by 3.3.3.3 exhausting its window.
     assert (await limiter.check("4.4.4.4")).allowed is True
+
+
+async def test_shared_across_instances(ratelimit_redis):
+    # Two limiter instances (two API replicas) share one Redis counter, so the
+    # per-IP window is enforced across replicas, not per-process (plan §13, §16).
+    settings = Settings(ratelimit_requests=3, ratelimit_window_seconds=1)
+    a = RateLimiter(ratelimit_redis, settings)
+    b = RateLimiter(ratelimit_redis, settings)
+    assert (await a.check("9.9.9.9")).allowed is True
+    assert (await b.check("9.9.9.9")).allowed is True
+    assert (await a.check("9.9.9.9")).allowed is True
+    assert (await b.check("9.9.9.9")).allowed is False  # 4th overall -> denied

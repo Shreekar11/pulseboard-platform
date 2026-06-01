@@ -7,9 +7,12 @@ and the rate-limit result must translate into a 429 + Retry-After.
 
 from __future__ import annotations
 
+from contextlib import asynccontextmanager
+
 import pytest
 import pytest_asyncio
 from httpx import ASGITransport, AsyncClient
+from redis.exceptions import RedisError
 
 from tests.conftest import requires_docker
 
@@ -24,6 +27,29 @@ async def client(settings, pg_pool, buffer_redis, ratelimit_redis):
     async with app.router.lifespan_context(app):
         async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
             yield c
+
+
+@asynccontextmanager
+async def _app_client():
+    """Build an app (lifespan-started) and client, exposing the app so tests can
+    swap out app.state dependencies (buffer / rate limiter) to simulate failures."""
+    from app.main import create_app
+
+    app = create_app()
+    async with app.router.lifespan_context(app):
+        async with AsyncClient(transport=ASGITransport(app=app), base_url="http://test") as c:
+            yield app, c
+
+
+class _RaisingStub:
+    def __init__(self, exc: Exception):
+        self._exc = exc
+
+    async def check(self, *_a, **_k):  # rate limiter contract
+        raise self._exc
+
+    async def add(self, *_a, **_k):  # buffer contract
+        raise self._exc
 
 
 async def test_ingest_accepts_and_lands_in_stream_without_postgres(
@@ -70,3 +96,22 @@ async def test_over_limit_returns_429_with_retry_after(
     assert second.json()["error"]["code"] == "rate_limited"
     assert int(second.headers["retry-after"]) >= 1
     get_settings.cache_clear()
+
+
+async def test_rate_limiter_redis_failure_fails_open(
+    settings, pg_pool, buffer_redis, ratelimit_redis
+):
+    # If the rate-limit Redis is down, ingest stays available (fail-open): the
+    # request is still accepted into the buffer (review I5).
+    async with _app_client() as (app, c):
+        app.state.rate_limiter = _RaisingStub(RedisError("ratelimit redis down"))
+        resp = await c.post("/api/events", json={"event_id": "evt_fo", "type": "signup"})
+    assert resp.status_code == 202
+
+
+async def test_buffer_unavailable_returns_503(settings, pg_pool, buffer_redis, ratelimit_redis):
+    async with _app_client() as (app, c):
+        app.state.buffer = _RaisingStub(RedisError("buffer down"))
+        resp = await c.post("/api/events", json={"event_id": "evt_bd", "type": "signup"})
+    assert resp.status_code == 503
+    assert resp.json()["error"]["code"] == "buffer_unavailable"

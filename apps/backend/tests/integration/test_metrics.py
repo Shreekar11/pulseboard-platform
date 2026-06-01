@@ -86,6 +86,20 @@ async def test_day_interval_aggregates_hourly(pg_pool):
     assert [p.count for p in series] == [5, 7]  # day1: 2+3, day2: 7
 
 
+async def test_week_interval_gap_fill(pg_pool):
+    # Weeks are Monday-aligned. 2026-01-05 is a Monday; 01-12 the next Monday.
+    await _insert_rollups(pg_pool, [("signup", _utc("2026-01-05T10:00:00"), 4)])
+    series = await metrics_service.get_series(
+        pg_pool,
+        tenant="default",
+        type_="signup",
+        from_=_utc("2026-01-05T00:00:00"),
+        to=_utc("2026-01-19T00:00:00"),
+        interval="week",
+    )
+    assert [p.count for p in series] == [4, 0]  # week1 has the event; week2 gap-filled
+
+
 async def test_top_n_ordering_and_limit(pg_pool):
     await _insert_rollups(
         pg_pool,
