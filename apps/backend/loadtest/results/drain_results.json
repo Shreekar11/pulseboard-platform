@@ -1,0 +1,25 @@
+{
+  "events": 100000,
+  "runs": [
+    {
+      "workers": 1,
+      "events": 100000,
+      "drain_seconds": 5.413,
+      "events_per_sec": 18474.3,
+      "correct": true,
+      "events_rows": 100000,
+      "rollup_sum": 100000,
+      "speedup_vs_baseline": 1.0
+    },
+    {
+      "workers": 3,
+      "events": 100000,
+      "drain_seconds": 3.152,
+      "events_per_sec": 31722.0,
+      "correct": true,
+      "events_rows": 100000,
+      "rollup_sum": 100000,
+      "speedup_vs_baseline": 1.72
+    }
+  ]
+}

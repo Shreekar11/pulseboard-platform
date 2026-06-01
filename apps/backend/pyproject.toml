@@ -24,6 +24,10 @@ dev = [
     "testcontainers[postgres,redis]>=4.8",
     "ruff>=0.8",
 ]
+# Load-testing only; kept out of the runtime Docker image. Install: uv sync --group loadtest
+loadtest = [
+    "locust>=2.31",
+]
 
 # Application project (not a distributable library): uv manages the venv and
 # dependencies but does not build/install this project itself. Modules are run

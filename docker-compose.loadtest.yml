@@ -1,0 +1,20 @@
+# Load-test override. Use ALONGSIDE docker-compose.yml:
+#
+#   docker compose -f docker-compose.yml -f docker-compose.loadtest.yml up -d --build --scale worker=3
+#
+# Raises the per-IP rate limit so the throughput benchmark measures the ingest
+# hot path itself, not the limiter (Locust drives all traffic from one localhost
+# IP, which would otherwise hit the 100 req/s default almost immediately). Real
+# deployments keep the normal limit; the limiter is tested separately.
+services:
+  api:
+    environment:
+      RATELIMIT_REQUESTS: "100000000"
+      DB_POOL_MAX: "20"
+
+  worker:
+    environment:
+      # Bigger pool + batch so a single worker isn't pool-starved while we measure
+      # per-worker drain throughput and the speedup from adding workers.
+      DB_POOL_MAX: "10"
+      WORKER_BATCH_SIZE: "500"
