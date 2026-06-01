@@ -1,0 +1,19 @@
+{
+  "name": "pulseboard-platform",
+  "version": "0.1.0",
+  "private": true,
+  "packageManager": "pnpm@10.28.1",
+  "scripts": {
+    "build": "turbo run build",
+    "dev": "turbo run dev",
+    "lint": "turbo run lint",
+    "test": "turbo run test",
+    "format": "turbo run format"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "devDependencies": {
+    "turbo": "^2.9.16"
+  }
+}

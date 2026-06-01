@@ -1,0 +1,10 @@
+{
+  "name": "@pulseboard/infra",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "build": "echo \"[infra] Phase 3 — Terraform IaC not scaffolded yet\" && exit 0",
+    "lint": "echo \"[infra] Phase 3 — run 'terraform fmt -check' once modules exist\" && exit 0",
+    "test": "echo \"[infra] Phase 3 — run 'terraform validate' once modules exist\" && exit 0"
+  }
+}

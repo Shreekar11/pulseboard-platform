@@ -1,0 +1,58 @@
+[project]
+name = "pulseboard-backend"
+version = "0.1.0"
+description = "PulseBoard event-analytics backend: ingest API, rollup worker, metrics API"
+readme = "README.md"
+requires-python = ">=3.12,<3.13"
+dependencies = [
+    "fastapi>=0.115",
+    "uvicorn[standard]>=0.32",
+    "pydantic>=2.9",
+    "pydantic-settings>=2.6",
+    "asyncpg>=0.30",
+    "redis>=5.2",
+    "sqlalchemy>=2.0",
+    "alembic>=1.14",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=8.3",
+    "pytest-asyncio>=0.24",
+    "anyio>=4.6",
+    "httpx>=0.28",
+    "testcontainers[postgres,redis]>=4.8",
+    "ruff>=0.8",
+]
+
+# Application project (not a distributable library): uv manages the venv and
+# dependencies but does not build/install this project itself. Modules are run
+# with `python -m` so the project root is on sys.path (see package.json scripts).
+[tool.uv]
+package = false
+
+[tool.ruff]
+line-length = 100
+target-version = "py312"
+src = ["app", "worker", "tests"]
+
+[tool.ruff.lint]
+select = ["E", "F", "I", "UP", "B", "ASYNC"]
+
+[tool.ruff.lint.flake8-bugbear]
+# FastAPI dependency-injection idiom: these calls in argument defaults are intentional.
+extend-immutable-calls = [
+    "fastapi.Query",
+    "fastapi.Depends",
+    "fastapi.Path",
+    "fastapi.Body",
+    "fastapi.Header",
+]
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+pythonpath = ["."]
+testpaths = ["tests"]
+markers = [
+    "integration: tests requiring real Postgres + Redis (via testcontainers/Docker)",
+]

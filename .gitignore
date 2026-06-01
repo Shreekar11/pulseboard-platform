@@ -1,0 +1,40 @@
+# Node / Turborepo
+node_modules/
+.turbo/
+dist/
+build/
+.next/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+.coverage
+coverage/
+htmlcov/
+
+# Environment
+.env
+.env.*
+!.env.example
+
+# Terraform / infra
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+!*.tfvars.example
+.terraform.lock.hcl
+
+# OS / editor
+.DS_Store
+.idea/
+.vscode/
