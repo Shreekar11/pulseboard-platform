@@ -48,7 +48,9 @@ class EventIn(BaseModel):
             "type": self.type,
             "user_id": self.user_id or "",
             "ts": ts.isoformat(),
-            "props": json.dumps(self.props) if self.props is not None else "",
+            "props": json.dumps(self.props, separators=(",", ":"))
+            if self.props is not None
+            else "",
         }
 
 

@@ -11,7 +11,7 @@ from datetime import datetime
 from fastapi import APIRouter, HTTPException, Query, status
 
 from app.config import get_settings
-from app.core.timeutil import INTERVAL_STEPS, to_utc
+from app.core.timeutil import INTERVAL_STEPS, align_ceil, align_floor, to_utc
 from app.deps import PoolDep
 from app.models.metrics import MetricsResponse, TopResponse
 from app.services import metrics_service
@@ -43,15 +43,18 @@ async def get_metrics(
             detail=f"interval must be one of {sorted(INTERVAL_STEPS)}",
         )
     f, t = _validate_range(from_, to)
+    # Align to bucket boundaries so non-aligned inputs can't bleed adjacent buckets
+    # and sub-step ranges still yield at least one bucket (review C1; plan §7, §11).
+    af, at = align_floor(f, interval), align_ceil(t, interval)
     series = await metrics_service.get_series(
         pool,
         tenant=get_settings().default_tenant,
         type_=type,
-        from_=f,
-        to=t,
+        from_=af,
+        to=at,
         interval=interval,
     )
-    return MetricsResponse(type=type, interval=interval, from_=f, to=t, series=series)
+    return MetricsResponse(type=type, interval=interval, from_=af, to=at, series=series)
 
 
 @router.get("/metrics/top", response_model=TopResponse)

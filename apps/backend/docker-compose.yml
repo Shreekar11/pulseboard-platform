@@ -1,0 +1,59 @@
+# Backend DEV infra: Postgres + Redis + one-shot migration.
+#
+# Purpose: spin up the dependencies and migrate the schema, then run the API and
+# worker FROM YOUR HOST (uv) so you can watch their logs live while testing the
+# write path. (The repo-root docker-compose.yml runs the *full* stack in
+# containers instead.)
+#
+#   docker compose up -d --build      # postgres + redis up, tables migrated
+#   uv run python -m uvicorn app.main:app --reload --port 8000   # terminal A
+#   uv run python -m worker.main                                  # terminal B
+#
+# Host ports match the config.py defaults, so the app needs no env vars locally.
+name: pulseboard-backend-dev
+
+services:
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: pulse
+      POSTGRES_PASSWORD: pulse
+      POSTGRES_DB: pulseboard
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U pulse -d pulseboard"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  redis:
+    image: redis:7-alpine
+    # AOF on + noeviction so accepted (un-acked) stream events are never dropped.
+    command: ["redis-server", "--appendonly", "yes", "--maxmemory-policy", "noeviction"]
+    ports:
+      - "6379:6379"
+    volumes:
+      - redisdata:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+
+  # One-shot: applies Alembic migrations, then exits. Re-runs as a no-op.
+  migrate:
+    build:
+      context: .
+    command: ["alembic", "upgrade", "head"]
+    environment:
+      DATABASE_URL: postgresql://pulse:pulse@postgres:5432/pulseboard
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  redisdata:

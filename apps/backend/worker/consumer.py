@@ -31,13 +31,29 @@ class RollupConsumer:
 
     async def run(self) -> None:
         await self._buffer.ensure_group()
-        # Recover anything left pending by a previously-crashed consumer.
-        await self._process(await self._buffer.autoclaim())
-
         while not self._stopping.is_set():
-            messages = await self._buffer.read_batch()
-            if messages:
-                await self._process(messages)
+            await self.run_once()
+
+    async def run_once(self) -> int:
+        """One consume iteration: reclaim idle pending entries, then read + process
+        a new batch. Returns the number of messages processed.
+
+        Reclaiming every iteration (not just at startup) re-drives entries stuck by
+        a crashed peer *and* a batch this worker failed on previously: a failed
+        batch is left pending (not acked), goes idle past ``claim_idle_ms``, and is
+        picked back up here (review I2/I3). ``read_batch`` blocks up to
+        ``block_ms``, so this loop does not busy-spin.
+        """
+        processed = 0
+        reclaimed = await self._buffer.autoclaim()
+        if reclaimed:
+            await self._process(reclaimed)
+            processed += len(reclaimed)
+        messages = await self._buffer.read_batch()
+        if messages:
+            await self._process(messages)
+            processed += len(messages)
+        return processed
 
     async def _process(self, messages) -> None:
         if not messages:

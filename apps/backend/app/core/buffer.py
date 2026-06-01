@@ -69,6 +69,9 @@ class RedisStreamBuffer(EventBuffer):
     async def add(self, fields: dict[str, str]) -> str:
         # Approximate MAXLEN trim is a memory backstop only; real retention is
         # MINID-based on the consumer side so unprocessed entries are never dropped.
+        # TODO(phase-1 safety, plan §8/§17): add periodic consumer-side XTRIM MINID
+        # below the minimum pending id so only fully-acked history is removed. Until
+        # then the large MAXLEN backstop bounds memory without dropping un-acked data.
         return await self._r.xadd(self._stream, fields, maxlen=self._maxlen, approximate=True)
 
     async def ensure_group(self) -> None:
