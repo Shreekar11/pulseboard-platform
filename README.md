@@ -1,0 +1,1 @@
+This is a cloud-agnostic event analytics system designed to ingest high-volume events, maintain pre-aggregated metrics, and serve low-latency analytics APIs. The project demonstrates scalable backend engineering, containerized application delivery, infrastructure-as-code, and vendor-agnostic CI/CD deployment across multiple cloud providers.
