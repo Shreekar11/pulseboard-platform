@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { AppSidebar } from "@/components/app-sidebar";
 import { TopBar } from "@/components/top-bar";
 import { EventsOverTimeCard } from "@/components/cards/events-over-time-card";
@@ -22,7 +22,7 @@ export default function DashboardPage() {
 
   // ── Derived time range ────────────────────────────────────────
   // Recomputed on every render; period changes → new range.
-  const { from, to } = periodToRange(period);
+  const { from, to } = useMemo(() => periodToRange(period), [period]);
 
   // ── Refresh nonce ─────────────────────────────────────────────
   const [refreshNonce, setRefreshNonce] = useState(0);
@@ -36,7 +36,7 @@ export default function DashboardPage() {
   const [firedCount, setFiredCount] = useState(0);
   // FireEvents only surfaces a count (not the event objects), so the activity
   // log stays empty for now — RecentActivityCard renders its own empty state.
-  const [activityLog] = useState<RecentActivityEvent[]>([]);
+  const activityLog = useMemo<RecentActivityEvent[]>(() => [], []);
 
   // Called by FireEvents after any fire/seed action.
   // count: number of events successfully fired (1 for single, N for seed, 1 for dup).
