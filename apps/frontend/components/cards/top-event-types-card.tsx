@@ -13,18 +13,11 @@ import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
-  type ChartConfig,
 } from "@/components/ui/chart";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getTop } from "@/lib/api";
-import type { TopItem } from "@/lib/types";
-
-const chartConfig = {
-  count: {
-    label: "Events",
-    color: "hsl(var(--primary))",
-  },
-} satisfies ChartConfig;
+import { useAsyncFetch } from "@/hooks/use-async-fetch";
+import { TOP_N, TOP_TYPES_CHART_CONFIG } from "./shared";
 
 export interface TopEventTypesCardProps {
   from: string;
@@ -37,42 +30,12 @@ export function TopEventTypesCard({
   to,
   refreshNonce,
 }: TopEventTypesCardProps) {
-  const [items, setItems] = React.useState<TopItem[] | null>(null);
-  const [loading, setLoading] = React.useState(true);
-  const [updating, setUpdating] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
+  const { data, loading, updating, error } = useAsyncFetch(
+    () => getTop({ from, to, limit: TOP_N }),
+    [from, to, refreshNonce],
+  );
 
-  React.useEffect(() => {
-    let cancelled = false;
-
-    setError(null);
-    setItems((prev) => {
-      if (prev) setUpdating(true);
-      else setLoading(true);
-      return prev;
-    });
-
-    getTop({ from, to, limit: 10 })
-      .then((res) => {
-        if (cancelled) return;
-        setItems(res.items);
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        setError(
-          err instanceof Error ? err.message : "Failed to load top types",
-        );
-      })
-      .finally(() => {
-        if (cancelled) return;
-        setLoading(false);
-        setUpdating(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [from, to, refreshNonce]);
+  const items = data?.items ?? null;
 
   return (
     <Card>
@@ -98,7 +61,7 @@ export function TopEventTypesCard({
             No events in this range yet.
           </div>
         ) : (
-          <ChartContainer config={chartConfig}>
+          <ChartContainer config={TOP_TYPES_CHART_CONFIG}>
             <BarChart
               data={items ?? []}
               layout="vertical"

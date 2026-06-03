@@ -9,6 +9,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { TOP_N } from "./shared";
 
 export interface RecentActivityEvent {
   event_id: string;
@@ -16,9 +17,12 @@ export interface RecentActivityEvent {
   ts: string;
 }
 
-export interface RecentActivityCardProps {
+interface Props {
+  /** Events in chronological order (oldest first). Newest are shown at top. */
   events: RecentActivityEvent[];
 }
+
+export type RecentActivityCardProps = Props;
 
 function formatTime(ts: string): string {
   const d = new Date(ts);
@@ -30,9 +34,13 @@ function formatTime(ts: string): string {
   });
 }
 
-export function RecentActivityCard({ events }: RecentActivityCardProps) {
+export function RecentActivityCard({ events }: Props) {
   const recent = React.useMemo(
-    () => [...events].slice(-10).reverse(),
+    () =>
+      [...events]
+        .sort((a, b) => a.ts.localeCompare(b.ts))
+        .slice(-TOP_N)
+        .reverse(),
     [events],
   );
 

@@ -13,19 +13,12 @@ import {
   ChartContainer,
   ChartTooltip,
   ChartTooltipContent,
-  type ChartConfig,
 } from "@/components/ui/chart";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getMetrics } from "@/lib/api";
-import type { MetricsResponse } from "@/lib/types";
 import { formatBucketLabel, type Interval } from "@/lib/time";
-
-const chartConfig = {
-  count: {
-    label: "Events",
-    color: "hsl(var(--primary))",
-  },
-} satisfies ChartConfig;
+import { useAsyncFetch } from "@/hooks/use-async-fetch";
+import { EVENTS_CHART_CONFIG } from "./shared";
 
 export interface EventsOverTimeCardProps {
   type: string;
@@ -42,45 +35,10 @@ export function EventsOverTimeCard({
   interval,
   refreshNonce,
 }: EventsOverTimeCardProps) {
-  const [data, setData] = React.useState<MetricsResponse | null>(null);
-  const [loading, setLoading] = React.useState(true);
-  const [updating, setUpdating] = React.useState(false);
-  const [error, setError] = React.useState<string | null>(null);
-
-  React.useEffect(() => {
-    let cancelled = false;
-
-    setError(null);
-    setData((prev) => {
-      if (prev) setUpdating(true);
-      else setLoading(true);
-      return prev;
-    });
-
-    getMetrics({
-      type: type === "all" ? undefined : type,
-      from,
-      to,
-      interval,
-    })
-      .then((res) => {
-        if (cancelled) return;
-        setData(res);
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        setError(err instanceof Error ? err.message : "Failed to load metrics");
-      })
-      .finally(() => {
-        if (cancelled) return;
-        setLoading(false);
-        setUpdating(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, [type, from, to, interval, refreshNonce]);
+  const { data, loading, updating, error } = useAsyncFetch(
+    () => getMetrics({ type: type === "all" ? undefined : type, from, to, interval }),
+    [type, from, to, interval, refreshNonce],
+  );
 
   const total = React.useMemo(
     () => data?.series.reduce((sum, p) => sum + p.count, 0) ?? 0,
@@ -114,7 +72,7 @@ export function EventsOverTimeCard({
             {error}
           </div>
         ) : (
-          <ChartContainer config={chartConfig}>
+          <ChartContainer config={EVENTS_CHART_CONFIG}>
             <AreaChart
               data={data?.series ?? []}
               margin={{ left: 0, right: 12, top: 4 }}

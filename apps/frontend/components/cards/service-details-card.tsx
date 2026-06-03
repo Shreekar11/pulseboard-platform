@@ -16,7 +16,7 @@ import type { InfoResponse } from "@/lib/types";
 export function ServiceDetailsCard() {
   const [info, setInfo] = React.useState<InfoResponse | null>(null);
   const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState(false);
+  const [error, setError] = React.useState<string | null>(null);
 
   React.useEffect(() => {
     let cancelled = false;
@@ -26,9 +26,10 @@ export function ServiceDetailsCard() {
         if (cancelled) return;
         setInfo(res);
       })
-      .catch(() => {
+      .catch((err: unknown) => {
         if (cancelled) return;
-        setError(true);
+        setError(err instanceof Error ? err.message : "Failed to load service info");
+        setLoading(false);
       })
       .finally(() => {
         if (cancelled) return;
@@ -53,7 +54,9 @@ export function ServiceDetailsCard() {
             <Skeleton className="h-5 w-full" />
             <Skeleton className="h-5 w-full" />
           </div>
-        ) : error || !info ? (
+        ) : error ? (
+          <p className="text-xs text-destructive">{error}</p>
+        ) : !info ? (
           <p className="text-sm text-muted-foreground">
             Service details unavailable.
           </p>
