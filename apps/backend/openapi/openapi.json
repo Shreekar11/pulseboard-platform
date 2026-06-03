@@ -212,12 +212,13 @@
         "properties": {
           "event_id": { "type": "string", "minLength": 1, "maxLength": 255 },
           "type": { "type": "string", "minLength": 1, "maxLength": 255 },
-          "user_id": { "type": "string", "maxLength": 255, "nullable": true },
-          "ts": { "type": "string", "format": "date-time", "nullable": true },
+          "user_id": { "anyOf": [{ "type": "string", "maxLength": 255 }, { "type": "null" }] },
+          "ts": { "anyOf": [{ "type": "string", "format": "date-time" }, { "type": "null" }] },
           "props": {
-            "type": "object",
-            "additionalProperties": true,
-            "nullable": true
+            "anyOf": [
+              { "type": "object", "additionalProperties": true },
+              { "type": "null" }
+            ]
           }
         }
       },
@@ -309,7 +310,7 @@
         "properties": {
           "code": { "type": "string" },
           "message": { "type": "string" },
-          "details": {}
+          "details": { "anyOf": [{}, { "type": "null" }] }
         }
       },
       "ErrorResponse": {

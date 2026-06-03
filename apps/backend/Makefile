@@ -18,5 +18,9 @@ gen:
 	uv run datamodel-codegen $(CODEGEN_FLAGS) --output app/models/generated.py
 
 gen-check:
-	uv run datamodel-codegen $(CODEGEN_FLAGS) --output /tmp/generated_check.py
-	diff app/models/generated.py /tmp/generated_check.py
+	$(eval TMPFILE := $(shell mktemp))
+	uv run datamodel-codegen \
+		$(CODEGEN_FLAGS) \
+		--output $(TMPFILE)
+	diff app/models/generated.py $(TMPFILE)
+	@rm -f $(TMPFILE)

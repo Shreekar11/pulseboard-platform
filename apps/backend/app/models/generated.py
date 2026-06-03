@@ -5,7 +5,11 @@ from __future__ import annotations
 
 from typing import Annotated, Any
 
-from pydantic import AwareDatetime, BaseModel, ConfigDict, Field
+from pydantic import AwareDatetime, BaseModel, ConfigDict, Field, RootModel
+
+
+class UserId(RootModel[str]):
+    root: Annotated[str, Field(max_length=255)]
 
 
 class EventIn(BaseModel):
@@ -14,7 +18,7 @@ class EventIn(BaseModel):
     )
     event_id: Annotated[str, Field(max_length=255, min_length=1)]
     type: Annotated[str, Field(max_length=255, min_length=1)]
-    user_id: Annotated[str | None, Field(max_length=255)] = None
+    user_id: UserId | None = None
     ts: AwareDatetime | None = None
     props: dict[str, Any] | None = None
 
@@ -103,7 +107,7 @@ class ErrorBody(BaseModel):
     )
     code: str
     message: str
-    details: Any | None = None
+    details: Any = None
 
 
 class ErrorResponse(BaseModel):
