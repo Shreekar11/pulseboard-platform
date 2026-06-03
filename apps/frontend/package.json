@@ -1,11 +1,26 @@
 {
-  "name": "@pulseboard/frontend",
+  "name": "frontend",
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "echo \"[frontend] Phase 2 — React + Recharts dashboard not scaffolded yet\" && exit 0",
-    "build": "echo \"[frontend] Phase 2 — no build yet\" && exit 0",
-    "lint": "echo \"[frontend] Phase 2 — no lint yet\" && exit 0",
-    "test": "echo \"[frontend] Phase 2 — no tests yet\" && exit 0"
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint"
+  },
+  "dependencies": {
+    "next": "16.2.7",
+    "react": "19.2.4",
+    "react-dom": "19.2.4"
+  },
+  "devDependencies": {
+    "@tailwindcss/postcss": "^4",
+    "@types/node": "^20",
+    "@types/react": "^19",
+    "@types/react-dom": "^19",
+    "eslint": "^9",
+    "eslint-config-next": "16.2.7",
+    "tailwindcss": "^4",
+    "typescript": "^5"
   }
 }
