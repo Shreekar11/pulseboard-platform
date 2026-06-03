@@ -1,7 +1,5 @@
 "use client";
 
-import * as React from "react";
-
 import {
   Card,
   CardContent,
@@ -11,35 +9,10 @@ import {
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { getInfo } from "@/lib/api";
-import type { InfoResponse } from "@/lib/types";
+import { useAsyncFetch } from "@/hooks/use-async-fetch";
 
 export function ServiceDetailsCard() {
-  const [info, setInfo] = React.useState<InfoResponse | null>(null);
-  const [loading, setLoading] = React.useState(true);
-  const [error, setError] = React.useState<string | null>(null);
-
-  React.useEffect(() => {
-    let cancelled = false;
-
-    getInfo()
-      .then((res) => {
-        if (cancelled) return;
-        setInfo(res);
-      })
-      .catch((err: unknown) => {
-        if (cancelled) return;
-        setError(err instanceof Error ? err.message : "Failed to load service info");
-        setLoading(false);
-      })
-      .finally(() => {
-        if (cancelled) return;
-        setLoading(false);
-      });
-
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  const { data: info, loading, error } = useAsyncFetch(() => getInfo(), []);
 
   return (
     <Card>

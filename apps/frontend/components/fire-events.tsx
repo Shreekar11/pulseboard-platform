@@ -32,6 +32,8 @@ export function FireEvents({ range, onFired }: FireEventsProps) {
       const events = seedEvents(range, 200);
       await throttledFire(events, postEvent);
       onFired(events.length);
+    } catch (err) {
+      console.error("handleSeed failed:", err);
     } finally {
       setSeeding(false);
     }
@@ -43,7 +45,7 @@ export function FireEvents({ range, onFired }: FireEventsProps) {
       if (!dupId) setDupId(id);
       const ev = { event_id: id, type: "click", ts: new Date().toISOString() };
       await postEvent(ev);
-      await postEvent({ ...ev }); // same event_id — idempotency demo
+      await postEvent(ev); // same event_id — idempotency demo
       onFired(1);
     } catch (err) {
       console.error("handleDuplicate failed:", err);

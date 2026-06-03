@@ -17,12 +17,10 @@ export interface RecentActivityEvent {
   ts: string;
 }
 
-interface Props {
+export interface RecentActivityCardProps {
   /** Events in chronological order (oldest first). Newest are shown at top. */
   events: RecentActivityEvent[];
 }
-
-export type RecentActivityCardProps = Props;
 
 function formatTime(ts: string): string {
   const d = new Date(ts);
@@ -34,11 +32,11 @@ function formatTime(ts: string): string {
   });
 }
 
-export function RecentActivityCard({ events }: Props) {
+export function RecentActivityCard({ events }: RecentActivityCardProps) {
   const recent = React.useMemo(
     () =>
       [...events]
-        .sort((a, b) => a.ts.localeCompare(b.ts))
+        .sort((a, b) => new Date(a.ts).getTime() - new Date(b.ts).getTime())
         .slice(-TOP_N)
         .reverse(),
     [events],
