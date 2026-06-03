@@ -1,0 +1,12 @@
+node_modules
+.next
+.git
+.env*
+Makefile
+README.md
+*.test.ts
+*.test.tsx
+*.spec.ts
+*.spec.tsx
+coverage/
+tsconfig.tsbuildinfo

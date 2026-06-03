@@ -1,4 +1,4 @@
-# Local backend stack (Phase 1). Frontend is added in Phase 2.
+# Full stack: frontend + backend API + worker + Postgres + Redis.
 # Single Redis with separate logical DBs (0=buffer, 1=rate-limit) for local only;
 # production splits these into separate instances.
 services:
@@ -58,6 +58,11 @@ services:
         condition: service_healthy
       postgres:
         condition: service_healthy
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request,sys; sys.exit(0) if urllib.request.urlopen('http://localhost:8000/healthz').status==200 else sys.exit(1)"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
 
   # Scale horizontally with `docker compose up -d --scale worker=N`. CONSUMER_NAME
   # is intentionally NOT set: each replica self-names via the hostname default
@@ -79,6 +84,18 @@ services:
       redis:
         condition: service_healthy
       postgres:
+        condition: service_healthy
+
+  frontend:
+    build:
+      context: ./apps/frontend
+    environment:
+      BACKEND_ORIGIN: http://api:8000
+      # NEXT_PUBLIC_API_BASE_URL intentionally unset → relative /api (cloud-agnostic)
+    ports:
+      - "3000:3000"
+    depends_on:
+      api:
         condition: service_healthy
 
 volumes:
