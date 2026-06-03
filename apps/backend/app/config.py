@@ -55,6 +55,7 @@ class Settings(BaseSettings):
     # --- Misc ---
     default_tenant: str = "default"
     log_level: str = "INFO"
+    cors_origins: list[str] = ["http://localhost:3000"]
 
 
 @lru_cache
