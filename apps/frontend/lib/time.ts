@@ -1,5 +1,5 @@
 export type Period = "24h" | "7d" | "30d";
-export type Interval = "hour" | "day";
+export type Interval = "hour" | "day" | "week";
 
 export interface TimeRange {
   from: string; // ISO UTC
@@ -8,12 +8,15 @@ export interface TimeRange {
 
 export function periodToRange(period: Period): TimeRange {
   const now = new Date();
-  const to = now.toISOString();
-  const fromDate = new Date(now);
-  if (period === "24h") fromDate.setHours(fromDate.getHours() - 24);
-  else if (period === "7d") fromDate.setDate(fromDate.getDate() - 7);
-  else fromDate.setDate(fromDate.getDate() - 30);
-  return { from: fromDate.toISOString(), to };
+  const MS: Record<Period, number> = {
+    "24h": 24 * 60 * 60_000,
+    "7d": 7 * 24 * 60 * 60_000,
+    "30d": 30 * 24 * 60 * 60_000,
+  };
+  return {
+    from: new Date(now.getTime() - MS[period]).toISOString(),
+    to: now.toISOString(),
+  };
 }
 
 export const PERIOD_OPTIONS: { label: string; value: Period }[] = [
@@ -25,6 +28,7 @@ export const PERIOD_OPTIONS: { label: string; value: Period }[] = [
 export const INTERVAL_OPTIONS: { label: string; value: Interval }[] = [
   { label: "Hour", value: "hour" },
   { label: "Day", value: "day" },
+  { label: "Week", value: "week" },
 ];
 
 export function formatBucketLabel(bucket: string, interval: Interval): string {

@@ -1,3 +1,5 @@
+import type { TimeRange } from "./time";
+
 export const EVENT_TYPES = ["signup", "click", "purchase"] as const;
 export type EventType = (typeof EVENT_TYPES)[number] | "all";
 
@@ -25,11 +27,6 @@ export function makeEvent(type: string): {
   };
 }
 
-export interface TimeRange {
-  from: string; // ISO UTC
-  to: string; // ISO UTC
-}
-
 export function seedEvents(
   range: TimeRange,
   count = 200
@@ -41,4 +38,19 @@ export function seedEvents(
     const ts = new Date(fromMs + Math.random() * span).toISOString();
     return { event_id: crypto.randomUUID(), type: weightedRandomType(), ts };
   });
+}
+
+export async function throttledFire(
+  events: Array<{ event_id: string; type: string; ts: string }>,
+  fireFn: (event: { event_id: string; type: string; ts: string }) => Promise<unknown>,
+  chunkSize = 10,
+  delayMs = 150,
+): Promise<void> {
+  for (let i = 0; i < events.length; i += chunkSize) {
+    const chunk = events.slice(i, i + chunkSize);
+    await Promise.all(chunk.map(fireFn));
+    if (i + chunkSize < events.length) {
+      await new Promise((resolve) => setTimeout(resolve, delayMs));
+    }
+  }
 }

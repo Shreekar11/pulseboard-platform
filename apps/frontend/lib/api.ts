@@ -6,6 +6,7 @@ import type {
   InfoResponse,
   HealthStatus,
 } from "./types";
+import type { Interval } from "./time";
 
 const BASE_URL = process.env.NEXT_PUBLIC_API_BASE_URL ?? "";
 
@@ -31,7 +32,7 @@ export interface MetricsParams {
   type?: string; // omit for all-types aggregate
   from: string; // ISO UTC datetime
   to: string; // ISO UTC datetime
-  interval: "hour" | "day";
+  interval: Interval;
 }
 
 export function getMetrics(params: MetricsParams): Promise<MetricsResponse> {
