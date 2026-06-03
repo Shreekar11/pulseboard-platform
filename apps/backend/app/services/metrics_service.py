@@ -16,14 +16,17 @@ from app.models.metrics import MetricPoint, TopItem
 # generate_series gap-fill; $4 is '1 hour'|'1 day'|'1 week'; range is [from, to).
 # $4 is hinted as text (::text::interval) so asyncpg sends the string rather than
 # trying to encode it with the interval (timedelta) codec.
+# $5=NULL aggregates all types; non-NULL filters to that type.
+# Params: ($1=tenant, $2=from, $3=to, $4=step, $5=type_or_null)
 _SERIES_SQL = """
 SELECT g.b AS bucket, COALESCE(SUM(r.count), 0)::bigint AS count
 FROM generate_series(
         $2::timestamptz, $3::timestamptz - $4::text::interval, $4::text::interval
      ) AS g(b)
 LEFT JOIN rollups r
-  ON r.tenant = $1 AND r.type = $5
+  ON r.tenant = $1
  AND r.bucket >= g.b AND r.bucket < g.b + $4::text::interval
+ AND ($5::text IS NULL OR r.type = $5::text)
 WHERE g.b >= $2::timestamptz AND g.b < $3::timestamptz
 GROUP BY g.b
 ORDER BY g.b;
@@ -43,7 +46,7 @@ async def get_series(
     pool: asyncpg.Pool,
     *,
     tenant: str,
-    type_: str,
+    type_: str | None,
     from_: datetime,
     to: datetime,
     interval: str,

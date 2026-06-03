@@ -12,9 +12,10 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, HTTPException
 from fastapi.exceptions import RequestValidationError
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import events, health, metrics
+from app.api import events, health, info, metrics
 from app.config import Settings, get_settings
 from app.core import db
 from app.core import redis as redis_core
@@ -52,7 +53,16 @@ def _error(status_code: int, code: str, message: str, details=None) -> JSONRespo
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="PulseBoard Backend", version="0.1.0", lifespan=lifespan)
+    settings = get_settings()
+    app = FastAPI(title="PulseBoard Backend", version=settings.app_version, lifespan=lifespan)
+
+    app.add_middleware(
+        CORSMiddleware,
+        allow_origins=get_settings().cors_origins,
+        allow_credentials=False,
+        allow_methods=["*"],
+        allow_headers=["*"],
+    )
 
     @app.exception_handler(RequestValidationError)
     async def _validation_handler(_request, exc: RequestValidationError):
@@ -66,6 +76,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(events.router)
     app.include_router(metrics.router)
+    app.include_router(info.router)
     return app
 
 

@@ -1,0 +1,329 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "PulseBoard Backend API",
+    "version": "0.1.0",
+    "description": "Canonical contract for the PulseBoard event-analytics backend. Source of truth for backend + frontend contract sync. Hand-authored; do not auto-generate from FastAPI."
+  },
+  "paths": {
+    "/api/events": {
+      "post": {
+        "summary": "Ingest an event",
+        "operationId": "ingestEvent",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/EventIn" }
+            }
+          }
+        },
+        "responses": {
+          "202": {
+            "description": "Event accepted for processing",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/EventAccepted" }
+              }
+            }
+          },
+          "429": {
+            "description": "Rate limited",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "503": {
+            "description": "Service unavailable (buffer full / downstream down)",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/metrics": {
+      "get": {
+        "summary": "Time-series metrics",
+        "operationId": "getMetrics",
+        "parameters": [
+          {
+            "name": "type",
+            "in": "query",
+            "required": false,
+            "description": "Event type to filter by. Omit to aggregate across all event types.",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string", "format": "date-time" }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string", "format": "date-time" }
+          },
+          {
+            "name": "interval",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "string",
+              "default": "day",
+              "enum": ["hour", "day", "week"]
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Metrics time series",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/MetricsResponse" }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/metrics/top": {
+      "get": {
+        "summary": "Top dimensions",
+        "operationId": "getTopMetrics",
+        "parameters": [
+          {
+            "name": "dimension",
+            "in": "query",
+            "required": false,
+            "schema": { "type": "string", "default": "type" }
+          },
+          {
+            "name": "from",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string", "format": "date-time" }
+          },
+          {
+            "name": "to",
+            "in": "query",
+            "required": true,
+            "schema": { "type": "string", "format": "date-time" }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 10,
+              "minimum": 1,
+              "maximum": 100
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Top dimension items",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TopResponse" }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/info": {
+      "get": {
+        "summary": "Deployment / runtime info",
+        "operationId": "getInfo",
+        "responses": {
+          "200": {
+            "description": "Service info",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/InfoResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/healthz": {
+      "get": {
+        "summary": "Liveness probe",
+        "operationId": "healthz",
+        "responses": {
+          "200": {
+            "description": "Liveness status",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/HealthStatus" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/readyz": {
+      "get": {
+        "summary": "Readiness probe",
+        "operationId": "readyz",
+        "responses": {
+          "200": {
+            "description": "Readiness status",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ReadyzResponse" }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "EventIn": {
+        "type": "object",
+        "required": ["event_id", "type"],
+        "properties": {
+          "event_id": { "type": "string", "minLength": 1, "maxLength": 255 },
+          "type": { "type": "string", "minLength": 1, "maxLength": 255 },
+          "user_id": { "anyOf": [{ "type": "string", "maxLength": 255 }, { "type": "null" }] },
+          "ts": { "anyOf": [{ "type": "string", "format": "date-time" }, { "type": "null" }] },
+          "props": {
+            "anyOf": [
+              { "type": "object", "additionalProperties": true },
+              { "type": "null" }
+            ]
+          }
+        }
+      },
+      "EventAccepted": {
+        "type": "object",
+        "required": ["status", "event_id"],
+        "properties": {
+          "status": { "type": "string", "default": "accepted" },
+          "event_id": { "type": "string" }
+        }
+      },
+      "MetricPoint": {
+        "type": "object",
+        "required": ["bucket", "count"],
+        "properties": {
+          "bucket": { "type": "string", "format": "date-time" },
+          "count": { "type": "integer" }
+        }
+      },
+      "MetricsResponse": {
+        "type": "object",
+        "required": ["type", "interval", "from", "to", "series"],
+        "properties": {
+          "type": {
+            "type": "string",
+            "description": "Event type filter applied. 'all' when no type filter was specified (aggregate across all types)."
+          },
+          "interval": { "type": "string" },
+          "from": { "type": "string", "format": "date-time" },
+          "to": { "type": "string", "format": "date-time" },
+          "series": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/MetricPoint" }
+          }
+        }
+      },
+      "TopItem": {
+        "type": "object",
+        "required": ["type", "count"],
+        "properties": {
+          "type": { "type": "string" },
+          "count": { "type": "integer" }
+        }
+      },
+      "TopResponse": {
+        "type": "object",
+        "required": ["dimension", "from", "to", "items"],
+        "properties": {
+          "dimension": { "type": "string" },
+          "from": { "type": "string", "format": "date-time" },
+          "to": { "type": "string", "format": "date-time" },
+          "items": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/TopItem" }
+          }
+        }
+      },
+      "InfoResponse": {
+        "type": "object",
+        "required": ["cloud_provider", "region", "version", "buffer"],
+        "properties": {
+          "cloud_provider": { "type": "string" },
+          "region": { "type": "string" },
+          "version": { "type": "string" },
+          "buffer": { "type": "string" }
+        }
+      },
+      "HealthStatus": {
+        "type": "object",
+        "required": ["status"],
+        "properties": {
+          "status": { "type": "string" }
+        }
+      },
+      "ReadyzResponse": {
+        "type": "object",
+        "required": ["status", "checks"],
+        "properties": {
+          "status": { "type": "string" },
+          "checks": {
+            "type": "object",
+            "properties": {
+              "redis": { "type": "boolean" },
+              "postgres": { "type": "boolean" }
+            }
+          }
+        }
+      },
+      "ErrorBody": {
+        "type": "object",
+        "required": ["code", "message"],
+        "properties": {
+          "code": { "type": "string" },
+          "message": { "type": "string" },
+          "details": { "anyOf": [{}, { "type": "null" }] }
+        }
+      },
+      "ErrorResponse": {
+        "type": "object",
+        "required": ["error"],
+        "properties": {
+          "error": { "$ref": "#/components/schemas/ErrorBody" }
+        }
+      }
+    }
+  }
+}

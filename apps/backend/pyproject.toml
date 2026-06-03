@@ -23,6 +23,7 @@ dev = [
     "httpx>=0.28",
     "testcontainers[postgres,redis]>=4.8",
     "ruff>=0.8",
+    "datamodel-code-generator>=0.26",
 ]
 # Load-testing only; kept out of the runtime Docker image. Install: uv sync --group loadtest
 loadtest = [

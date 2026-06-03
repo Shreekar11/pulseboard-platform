@@ -79,3 +79,32 @@ async def test_misaligned_day_input_does_not_bleed(client, pg_pool):
     assert resp.status_code == 200
     counts = [p["count"] for p in resp.json()["series"]]
     assert counts == [3, 7]
+
+
+async def test_omitted_type_aggregates_all(client, pg_pool):
+    """GET /api/metrics without `type` must aggregate across all event types."""
+    from datetime import datetime
+
+    await _insert(
+        pg_pool,
+        [
+            ("signup", datetime(2026, 4, 1, 0, tzinfo=UTC), 4),
+            ("login", datetime(2026, 4, 1, 0, tzinfo=UTC), 6),
+            ("purchase", datetime(2026, 4, 1, 0, tzinfo=UTC), 10),
+        ],
+    )
+    resp = await client.get(
+        "/api/metrics",
+        params={
+            "from": "2026-04-01T00:00:00Z",
+            "to": "2026-04-02T00:00:00Z",
+            "interval": "day",
+        },
+    )
+    assert resp.status_code == 200
+    body = resp.json()
+    assert body["type"] == "all"
+    # One bucket for the day; count must be the sum of all three types.
+    series = body["series"]
+    assert len(series) == 1
+    assert series[0]["count"] == 20

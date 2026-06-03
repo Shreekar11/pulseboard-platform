@@ -1,21 +1,5 @@
-"""Unified error envelope returned by all endpoints.
+"""Re-exports from generated schema. See openapi/openapi.json for the contract."""
 
-Shape: ``{"error": {"code": ..., "message": ..., "details": ...}}``.
-Applied via exception handlers registered in app.main.
-"""
+from app.models.generated import ErrorBody, ErrorResponse
 
-from __future__ import annotations
-
-from typing import Any
-
-from pydantic import BaseModel
-
-
-class ErrorBody(BaseModel):
-    code: str
-    message: str
-    details: Any | None = None
-
-
-class ErrorResponse(BaseModel):
-    error: ErrorBody
+__all__ = ["ErrorBody", "ErrorResponse"]
