@@ -15,7 +15,7 @@ from fastapi.exceptions import RequestValidationError
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
 
-from app.api import events, health, metrics
+from app.api import events, health, info, metrics
 from app.config import Settings, get_settings
 from app.core import db
 from app.core import redis as redis_core
@@ -75,6 +75,7 @@ def create_app() -> FastAPI:
     app.include_router(health.router)
     app.include_router(events.router)
     app.include_router(metrics.router)
+    app.include_router(info.router)
     return app
 
 

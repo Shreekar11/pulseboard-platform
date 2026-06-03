@@ -56,6 +56,9 @@ class Settings(BaseSettings):
     default_tenant: str = "default"
     log_level: str = "INFO"
     cors_origins: list[str] = ["http://localhost:3000"]
+    cloud_provider: str = "local"
+    region: str = "local"
+    app_version: str = "0.1.0"
 
 
 @lru_cache
