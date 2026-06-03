@@ -17,9 +17,13 @@ export function FireEvents({ range, onFired }: FireEventsProps) {
   const [dupId, setDupId] = useState<string | null>(null);
 
   async function fireOne(type: string) {
-    const ev = makeEvent(type);
-    await postEvent(ev);
-    onFired(1);
+    try {
+      const ev = makeEvent(type);
+      await postEvent(ev);
+      onFired(1);
+    } catch (err) {
+      console.error("fireOne failed:", err);
+    }
   }
 
   async function handleSeed() {
@@ -34,13 +38,16 @@ export function FireEvents({ range, onFired }: FireEventsProps) {
   }
 
   async function handleDuplicate() {
-    // Fires the same event_id twice; backend deduplication means count rises by 1.
-    const ev = dupId ? { event_id: dupId, type: "click", ts: new Date().toISOString() } : makeEvent("click");
-    const id = ev.event_id;
-    setDupId(id);
-    await postEvent(ev);
-    await postEvent({ ...ev, event_id: id }); // second send — same id
-    onFired(1); // backend stores only one
+    try {
+      const id = dupId ?? crypto.randomUUID();
+      if (!dupId) setDupId(id);
+      const ev = { event_id: id, type: "click", ts: new Date().toISOString() };
+      await postEvent(ev);
+      await postEvent({ ...ev }); // same event_id — idempotency demo
+      onFired(1);
+    } catch (err) {
+      console.error("handleDuplicate failed:", err);
+    }
   }
 
   return (
