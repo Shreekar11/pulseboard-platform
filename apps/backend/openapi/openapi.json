@@ -55,6 +55,7 @@
             "name": "type",
             "in": "query",
             "required": false,
+            "description": "Event type to filter by. Omit to aggregate across all event types.",
             "schema": { "type": "string" }
           },
           {
@@ -242,7 +243,10 @@
         "type": "object",
         "required": ["type", "interval", "from", "to", "series"],
         "properties": {
-          "type": { "type": "string" },
+          "type": {
+            "type": "string",
+            "description": "Event type filter applied. 'all' when no type filter was specified (aggregate across all types)."
+          },
           "interval": { "type": "string" },
           "from": { "type": "string", "format": "date-time" },
           "to": { "type": "string", "format": "date-time" },

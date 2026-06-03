@@ -43,7 +43,12 @@ class MetricsResponse(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
     )
-    type: str
+    type: Annotated[
+        str,
+        Field(
+            description="Event type filter applied. 'all' when no type filter was specified (aggregate across all types)."
+        ),
+    ]
     interval: str
     from_: Annotated[AwareDatetime, Field(alias='from')]
     to: AwareDatetime

@@ -32,7 +32,7 @@ def _validate_range(from_: datetime, to: datetime) -> tuple[datetime, datetime]:
 @router.get("/metrics", response_model=MetricsResponse)
 async def get_metrics(
     pool: PoolDep,
-    type: str | None = Query(default=None),
+    type: str | None = Query(default=None, min_length=1),
     from_: datetime = Query(alias="from"),
     to: datetime = Query(),
     interval: str = Query(default="day"),
