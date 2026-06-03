@@ -59,6 +59,7 @@ class Settings(BaseSettings):
     cloud_provider: str = "local"
     region: str = "local"
     app_version: str = "0.1.0"
+    buffer_type: str = "redis-streams"
 
 
 @lru_cache

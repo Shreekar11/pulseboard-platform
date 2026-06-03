@@ -20,5 +20,5 @@ async def get_info() -> InfoResponse:
         cloud_provider=s.cloud_provider,
         region=s.region,
         version=s.app_version,
-        buffer="redis-streams",
+        buffer=s.buffer_type,
     )

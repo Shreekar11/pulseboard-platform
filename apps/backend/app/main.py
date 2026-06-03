@@ -53,7 +53,8 @@ def _error(status_code: int, code: str, message: str, details=None) -> JSONRespo
 
 
 def create_app() -> FastAPI:
-    app = FastAPI(title="PulseBoard Backend", version="0.1.0", lifespan=lifespan)
+    settings = get_settings()
+    app = FastAPI(title="PulseBoard Backend", version=settings.app_version, lifespan=lifespan)
 
     app.add_middleware(
         CORSMiddleware,
