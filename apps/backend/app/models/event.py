@@ -1,28 +1,32 @@
 """Ingest request/response models (Pydantic v2).
 
-Validation + normalization for `POST /api/events`: required ids, UTC timestamp
-normalization, props size cap. `tenant` is server-assigned ('default') in Phase 1
-— not accepted from clients (no auth).
+`EventIn` is the spec-derived DTO (`app.models.generated.EventIn`) extended with
+domain behavior: required ids, UTC timestamp normalization, props size cap, and
+flattening to Redis stream fields. `tenant` is server-assigned ('default') in
+Phase 1 — not accepted from clients (no auth).
+
+See openapi/openapi.json for the contract.
 """
 
 from __future__ import annotations
 
 import json
 from datetime import datetime
-from typing import Any
 
-from pydantic import BaseModel, Field, field_validator, model_validator
+from pydantic import field_validator, model_validator
 
 from app.config import get_settings
 from app.core.timeutil import now_utc, to_utc
+from app.models.generated import EventAccepted
+from app.models.generated import EventIn as EventInBase
+
+__all__ = ["EventIn", "EventAccepted"]
 
 
-class EventIn(BaseModel):
-    event_id: str = Field(min_length=1, max_length=255)
-    type: str = Field(min_length=1, max_length=255)
-    user_id: str | None = Field(default=None, max_length=255)
+class EventIn(EventInBase):
+    # Override the generated `AwareDatetime` field so naive timestamps are
+    # accepted and normalized to UTC by the validator below (assumed UTC).
     ts: datetime | None = None
-    props: dict[str, Any] | None = None
 
     @field_validator("ts")
     @classmethod
@@ -52,8 +56,3 @@ class EventIn(BaseModel):
             if self.props is not None
             else "",
         }
-
-
-class EventAccepted(BaseModel):
-    status: str = "accepted"
-    event_id: str
