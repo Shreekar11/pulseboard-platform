@@ -1,36 +1,57 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# PulseBoard Frontend
 
-## Getting Started
+Event analytics dashboard. Built with Next.js 16, shadcn/ui, Recharts.
 
-First, run the development server:
+## Local Development
 
+**Prerequisites:** Docker, Node.js 20+, pnpm
+
+**1. Start the backend stack:**
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+# From repo root
+docker compose up -d
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+This starts Postgres, Redis, the FastAPI backend, and the rollup worker.
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+**2. Install frontend dependencies:**
+```bash
+cd apps/frontend
+pnpm install
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+**3. Generate TypeScript types from the OpenAPI spec:**
+```bash
+make generate
+```
 
-## Learn More
+**4. Start the dev server:**
+```bash
+pnpm dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+Open [http://localhost:3000](http://localhost:3000).
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## API Configuration
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The frontend calls the backend at `NEXT_PUBLIC_API_BASE_URL` (set in `.env.local`).
 
-## Deploy on Vercel
+| Environment | Value |
+|---|---|
+| Local dev | `http://localhost:8000` |
+| Production | (empty — uses relative `/api` via ingress) |
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+## Project Structure
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```
+app/           Next.js App Router pages and layouts
+components/    Shared React components
+  ui/          shadcn/ui component library
+lib/           Utilities and API layer
+  api.ts       Typed fetch wrapper
+  types.ts     Re-exported generated types
+  events.ts    Event helpers (seed, fire)
+  time.ts      Period presets and formatters
+  generated/   Generated from OpenAPI spec (do not edit)
+openapi/       Synced OpenAPI spec (do not edit)
+```
