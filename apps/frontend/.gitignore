@@ -39,3 +39,7 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+
+# Generated OpenAPI types (run `make generate` to regenerate)
+/lib/generated/
+/openapi/openapi.json
