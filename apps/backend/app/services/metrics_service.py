@@ -16,6 +16,7 @@ from app.models.metrics import MetricPoint, TopItem
 # generate_series gap-fill; $4 is '1 hour'|'1 day'|'1 week'; range is [from, to).
 # $4 is hinted as text (::text::interval) so asyncpg sends the string rather than
 # trying to encode it with the interval (timedelta) codec.
+# Params: ($1=tenant, $2=from, $3=to, $4=step, $5=type)
 _SERIES_SQL = """
 SELECT g.b AS bucket, COALESCE(SUM(r.count), 0)::bigint AS count
 FROM generate_series(
@@ -25,6 +26,21 @@ LEFT JOIN rollups r
   ON r.tenant = $1 AND r.type = $5
  AND r.bucket >= g.b AND r.bucket < g.b + $4::text::interval
 WHERE g.b >= $2::timestamptz AND g.b < $3::timestamptz
+GROUP BY g.b
+ORDER BY g.b;
+"""
+
+# Aggregate all types variant — no type filter.
+# Params: ($1=from, $2=to, $3=step, $4=tenant)
+_SERIES_ALL_SQL = """
+SELECT g.b AS bucket, COALESCE(SUM(r.count), 0)::bigint AS count
+FROM generate_series(
+        $1::timestamptz, $2::timestamptz - $3::text::interval, $3::text::interval
+     ) AS g(b)
+LEFT JOIN rollups r
+  ON r.tenant = $4
+ AND r.bucket >= g.b AND r.bucket < g.b + $3::text::interval
+WHERE g.b >= $1::timestamptz AND g.b < $2::timestamptz
 GROUP BY g.b
 ORDER BY g.b;
 """
@@ -43,14 +59,17 @@ async def get_series(
     pool: asyncpg.Pool,
     *,
     tenant: str,
-    type_: str,
+    type_: str | None,
     from_: datetime,
     to: datetime,
     interval: str,
 ) -> list[MetricPoint]:
     step = step_for(interval)
     async with pool.acquire() as conn:
-        rows = await conn.fetch(_SERIES_SQL, tenant, from_, to, step, type_)
+        if type_ is None:
+            rows = await conn.fetch(_SERIES_ALL_SQL, from_, to, step, tenant)
+        else:
+            rows = await conn.fetch(_SERIES_SQL, tenant, from_, to, step, type_)
     return [MetricPoint(bucket=r["bucket"], count=r["count"]) for r in rows]
 
 
