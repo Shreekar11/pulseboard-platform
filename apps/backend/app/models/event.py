@@ -50,7 +50,7 @@ class EventIn(EventInBase):
             "event_id": self.event_id,
             "tenant": settings.default_tenant,
             "type": self.type,
-            "user_id": self.user_id or "",
+            "user_id": str(self.user_id.root) if self.user_id is not None else "",
             "ts": ts.isoformat(),
             "props": json.dumps(self.props, separators=(",", ":"))
             if self.props is not None
