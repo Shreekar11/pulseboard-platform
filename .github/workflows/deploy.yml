@@ -1,0 +1,187 @@
+name: Deploy
+
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      cloud_provider:
+        description: "Override target cloud (aws or gcp). Leave blank to use vars.CLOUD_PROVIDER."
+        required: false
+        type: string
+        default: ""
+
+permissions:
+  id-token: write
+  contents: read
+  pull-requests: write
+
+concurrency:
+  group: deploy-${{ github.event.inputs.cloud_provider || vars.CLOUD_PROVIDER }}
+  cancel-in-progress: false
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    env:
+      PROVIDER: ${{ github.event.inputs.cloud_provider || vars.CLOUD_PROVIDER }}
+      AWS_REGION: ${{ vars.AWS_REGION }}
+      GCP_REGION: ${{ vars.GCP_REGION }}
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Resolve provider and fail fast if unset
+        run: |
+          set -euo pipefail
+          if [ -z "${PROVIDER}" ]; then
+            echo "::error::CLOUD_PROVIDER is not set (repo variable or workflow_dispatch input). Nothing to deploy. Phase 6 configures this."
+            exit 1
+          fi
+          case "${PROVIDER}" in
+            aws) echo "REGION=${AWS_REGION}" >> "$GITHUB_ENV" ;;
+            gcp) echo "REGION=${GCP_REGION}" >> "$GITHUB_ENV" ;;
+            *) echo "::error::Unsupported provider '${PROVIDER}' (expected aws or gcp)"; exit 1 ;;
+          esac
+          echo "SHORT_SHA=${GITHUB_SHA::7}" >> "$GITHUB_ENV"
+          echo "Target cloud: ${PROVIDER}"
+
+      - name: Cloud auth (OIDC)
+        uses: ./.github/actions/cloud-auth
+        with:
+          provider: ${{ env.PROVIDER }}
+          aws-role-arn: ${{ secrets.AWS_ROLE_ARN }}
+          aws-region: ${{ vars.AWS_REGION }}
+          gcp-workload-identity-provider: ${{ secrets.GCP_WIF_PROVIDER }}
+          gcp-service-account: ${{ secrets.GCP_SERVICE_ACCOUNT }}
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+          terraform_wrapper: false
+
+      - name: Set up kubectl
+        uses: azure/setup-kubectl@v4
+
+      - name: Set up kustomize
+        run: |
+          set -euo pipefail
+          curl -sSfL "https://raw.githubusercontent.com/kubernetes-sigs/kustomize/master/hack/install_kustomize.sh" | bash
+          sudo mv kustomize /usr/local/bin/kustomize
+
+      - name: Terraform apply
+        id: tf
+        working-directory: apps/infra/envs/${{ env.PROVIDER }}
+        run: |
+          set -euo pipefail
+          terraform init -input=false
+          terraform apply -input=false -auto-approve -var-file="${PROVIDER}.tfvars"
+          {
+            echo "registry_url=$(terraform output -raw registry_url)"
+            echo "cluster_auth=$(terraform output -raw cluster_auth)"
+          } >> "$GITHUB_OUTPUT"
+          DB_DSN="$(terraform output -raw db_dsn)"
+          echo "::add-mask::${DB_DSN}"
+          echo "DB_DSN=${DB_DSN}" >> "$GITHUB_ENV"
+
+      - name: Registry login (AWS ECR)
+        if: env.PROVIDER == 'aws'
+        run: |
+          set -euo pipefail
+          aws ecr get-login-password --region "${REGION}" \
+            | docker login --username AWS --password-stdin "${{ steps.tf.outputs.registry_url }}"
+
+      - name: Registry login (GCP Artifact Registry)
+        if: env.PROVIDER == 'gcp'
+        run: |
+          set -euo pipefail
+          gcloud auth configure-docker "${REGION}-docker.pkg.dev" --quiet
+
+      - name: Build and push images
+        run: |
+          set -euo pipefail
+          REG="${{ steps.tf.outputs.registry_url }}"
+          docker build -t "${REG}/pulseboard/api:${SHORT_SHA}" apps/backend
+          docker build -t "${REG}/pulseboard/frontend:${SHORT_SHA}" apps/frontend
+          docker push "${REG}/pulseboard/api:${SHORT_SHA}"
+          docker push "${REG}/pulseboard/frontend:${SHORT_SHA}"
+
+      - name: Cluster auth (kubeconfig)
+        run: |
+          set -euo pipefail
+          eval "${{ steps.tf.outputs.cluster_auth }}"
+
+      - name: Create or refresh DB secret
+        run: |
+          set -euo pipefail
+          kubectl create namespace pulseboard --dry-run=client -o yaml | kubectl apply -f -
+          kubectl -n pulseboard create secret generic pulseboard-db \
+            --from-literal=DATABASE_URL="${DB_DSN}" \
+            --dry-run=client -o yaml | kubectl apply -f -
+
+      - name: Deploy (kustomize set image + apply)
+        run: |
+          set -euo pipefail
+          REG="${{ steps.tf.outputs.registry_url }}"
+          cd "k8s/overlays/${PROVIDER}"
+          kustomize edit set image \
+            "pulseboard/api=${REG}/pulseboard/api:${SHORT_SHA}" \
+            "pulseboard/frontend=${REG}/pulseboard/frontend:${SHORT_SHA}"
+          kubectl apply -k .
+
+      - name: Wait for rollout
+        run: |
+          set -euo pipefail
+          kubectl -n pulseboard rollout status deploy/api --timeout=300s
+          kubectl -n pulseboard rollout status deploy/frontend --timeout=300s
+          kubectl -n pulseboard rollout status deploy/worker --timeout=300s
+          kubectl -n pulseboard wait --for=condition=complete job/migrate --timeout=180s
+
+      - name: Verify (health check via ingress)
+        run: |
+          set -euo pipefail
+          echo "Resolving ingress address..."
+          ADDR=""
+          for i in $(seq 1 30); do
+            ADDR=$(kubectl -n pulseboard get ingress pulseboard \
+              -o jsonpath='{.status.loadBalancer.ingress[0].hostname}{.status.loadBalancer.ingress[0].ip}' 2>/dev/null || true)
+            if [ -n "${ADDR}" ]; then break; fi
+            echo "  ingress not ready yet (${i}/30)"; sleep 20
+          done
+          if [ -z "${ADDR}" ]; then
+            echo "::error::ingress address never provisioned"; exit 1
+          fi
+          echo "Ingress address: ${ADDR}"
+          for i in $(seq 1 30); do
+            code=$(curl -s -o /dev/null -w '%{http_code}' "http://${ADDR}/healthz" || true)
+            if [ "${code}" = "200" ]; then
+              echo "healthz OK"; exit 0
+            fi
+            echo "  waiting for healthz (${i}/30, last=${code})"; sleep 20
+          done
+          echo "::error::service did not become healthy"; exit 1
+
+      - name: AI deploy summary (optional, non-blocking)
+        if: ${{ always() && env.PROVIDER != '' }}
+        continue-on-error: true
+        env:
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+          GH_TOKEN: ${{ github.token }}
+          DEPLOY_STATUS: ${{ job.status }}
+        run: |
+          set -euo pipefail
+          PROMPT="Summarize this PulseBoard deployment for a PR/commit comment in 3-5 concise factual bullet points. Cloud provider: ${PROVIDER}. Image tag: ${SHORT_SHA}. Job status: ${DEPLOY_STATUS}. Commit: ${GITHUB_SHA}."
+          REQ=$(jq -n --arg m "$PROMPT" '{model:"claude-opus-4-8",max_tokens:400,messages:[{role:"user",content:$m}]}')
+          RESP=$(curl -sS https://api.anthropic.com/v1/messages \
+            -H "x-api-key: ${ANTHROPIC_API_KEY}" \
+            -H "anthropic-version: 2023-06-01" \
+            -H "content-type: application/json" \
+            -d "${REQ}")
+          SUMMARY=$(echo "${RESP}" | jq -r '.content[0].text // "AI summary unavailable"')
+          {
+            echo "### Deploy summary (${PROVIDER})"
+            echo ""
+            echo "${SUMMARY}"
+          } > /tmp/deploy-summary.md
+          gh api "repos/${GITHUB_REPOSITORY}/commits/${GITHUB_SHA}/comments" \
+            -f body="$(cat /tmp/deploy-summary.md)" || true
