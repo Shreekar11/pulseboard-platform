@@ -22,4 +22,20 @@ done
 echo "== assert: api reads DATABASE_URL from secret pulseboard-db =="
 echo "$out" | yq 'select(.kind=="Deployment" and .metadata.name=="api") | .spec.template.spec.containers[0].env[] | select(.name=="DATABASE_URL") | .valueFrom.secretKeyRef.name' | grep -qx 'pulseboard-db'
 
+echo "== assert: aws overlay deltas =="
+a="$(render aws)"
+echo "$a" | yq 'select(.kind=="Ingress") | .spec.ingressClassName' | grep -qx 'alb'
+echo "$a" | yq 'select(.kind=="StatefulSet" and .metadata.name=="redis") | .spec.volumeClaimTemplates[0].spec.storageClassName' | grep -qx 'gp3'
+echo "$a" | yq 'select(.kind=="Deployment" and .metadata.name=="api") | .spec.template.spec.containers[0].image' | grep -q 'REGISTRY/pulseboard/api'
+
+echo "== assert: gcp overlay deltas =="
+g="$(render gcp)"
+echo "$g" | yq 'select(.kind=="Ingress") | .spec.ingressClassName' | grep -qx 'gce'
+echo "$g" | yq 'select(.kind=="StatefulSet" and .metadata.name=="redis") | .spec.volumeClaimTemplates[0].spec.storageClassName' | grep -qx 'pd-balanced'
+
+echo "== assert: local overlay ships postgres + db secret =="
+l="$(render local)"
+echo "$l" | yq 'select(.kind=="StatefulSet" and .metadata.name=="postgres") | .metadata.name' | grep -qx 'postgres'
+echo "$l" | yq 'select(.kind=="Secret" and .metadata.name=="pulseboard-db") | .metadata.name' | grep -qx 'pulseboard-db'
+
 echo "render.sh OK"
