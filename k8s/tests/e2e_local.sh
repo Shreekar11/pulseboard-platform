@@ -43,7 +43,7 @@ curl -fsS -X POST "$BASE/api/events" -H 'content-type: application/json' \
 echo "== wait for rollup freshness, then assert metrics non-empty =="
 sleep 5
 COUNT=$(curl -fsS "$BASE/api/metrics?type=signup&from=2026-01-01T00:00:00Z&to=2026-01-02T00:00:00Z&interval=day" \
-  | yq '.points | map(.count) | add')
+  | jq '[.series[].count] | add // 0')
 test "${COUNT:-0}" -ge 1 || { echo "expected >=1 rolled-up event, got $COUNT"; exit 1; }
 
 echo "e2e_local.sh OK — full stack works on K8s for \$0"
