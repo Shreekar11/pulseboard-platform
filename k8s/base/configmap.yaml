@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: pulseboard-config
+data:
+  REDIS_BUFFER_URL: "redis://redis:6379/0"
+  REDIS_RATELIMIT_URL: "redis://redis:6379/1"
+  BACKEND_ORIGIN: "http://api:8000"
