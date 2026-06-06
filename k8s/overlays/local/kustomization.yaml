@@ -1,0 +1,17 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+namespace: pulseboard
+resources:
+  - ../../base
+  - postgres.yaml
+  - db-secret.yaml
+images:
+  - name: pulseboard/api
+    newName: pulseboard/api
+    newTag: local
+  - name: pulseboard/frontend
+    newName: pulseboard/frontend
+    newTag: local
+patches:
+  - path: patch-ingress.yaml
+  - path: patch-images.yaml
