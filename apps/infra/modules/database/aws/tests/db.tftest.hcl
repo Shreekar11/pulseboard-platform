@@ -1,12 +1,11 @@
 mock_provider "aws" {}
 
 variables {
-  name        = "pulseboard"
-  region      = "us-east-1"
-  network_id  = "vpc-123"
-  subnet_ids  = ["subnet-a", "subnet-b"]
-  pg_version  = "16"
-  storage_gb  = 20
+  name       = "pulseboard"
+  network_id = "vpc-123"
+  subnet_ids = ["subnet-a", "subnet-b"]
+  pg_version = "16"
+  storage_gb = 20
 }
 
 run "medium_maps_to_db_t3_medium" {
