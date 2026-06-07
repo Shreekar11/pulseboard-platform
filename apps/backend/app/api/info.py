@@ -3,6 +3,7 @@
 Read-only, no dependencies — returns env-configured deployment metadata
 (cloud provider, region, version, buffer type).
 """
+
 from __future__ import annotations
 
 from fastapi import APIRouter
