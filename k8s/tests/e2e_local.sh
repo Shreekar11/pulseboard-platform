@@ -25,9 +25,23 @@ echo "   waiting for ingress-nginx controller pod to appear..."
 until kubectl -n ingress-nginx get pod -l app.kubernetes.io/component=controller 2>/dev/null | grep -q controller; do sleep 2; done
 kubectl wait --namespace ingress-nginx --for=condition=ready pod \
   --selector=app.kubernetes.io/component=controller --timeout=180s
+# Pod "ready" doesn't guarantee the admission webhook is serving: the
+# validate.nginx.ingress webhook Service can still have zero ready endpoints,
+# which makes Ingress creation fail with "connection refused". Wait until the
+# admission endpoints are populated before applying.
+echo "   waiting for ingress-nginx admission webhook endpoints..."
+until [ -n "$(kubectl -n ingress-nginx get endpoints ingress-nginx-controller-admission \
+  -o jsonpath='{.subsets[*].addresses[*].ip}' 2>/dev/null)" ]; do sleep 2; done
 
 echo "== deploy app =="
-kubectl apply -k k8s/overlays/local
+# Even with endpoints up there's a brief admission-readiness window; retry the
+# (idempotent) apply so a transient webhook hiccup doesn't fail the run.
+for attempt in 1 2 3 4 5; do
+  if kubectl apply -k k8s/overlays/local; then break; fi
+  echo "   apply attempt $attempt failed (webhook not ready?), retrying in 5s..."
+  sleep 5
+  [ "$attempt" = 5 ] && { echo "apply failed after 5 attempts"; exit 1; }
+done
 kubectl -n pulseboard wait --for=condition=available --timeout=180s deploy/api deploy/frontend deploy/worker
 kubectl -n pulseboard wait --for=condition=complete --timeout=120s job/migrate
 

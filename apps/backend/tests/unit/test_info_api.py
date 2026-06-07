@@ -1,11 +1,12 @@
 """Unit tests for GET /api/info — no infrastructure required."""
-from __future__ import annotations
-from unittest.mock import patch
 
-from fastapi.testclient import TestClient
+from __future__ import annotations
+
+from unittest.mock import patch
 
 from app.config import Settings
 from app.main import create_app
+from fastapi.testclient import TestClient
 
 
 def _client():

@@ -27,7 +27,7 @@ class EventAccepted(BaseModel):
     model_config = ConfigDict(
         populate_by_name=True,
     )
-    status: str = 'accepted'
+    status: str = "accepted"
     event_id: str
 
 
@@ -46,11 +46,14 @@ class MetricsResponse(BaseModel):
     type: Annotated[
         str,
         Field(
-            description="Event type filter applied. 'all' when no type filter was specified (aggregate across all types)."
+            description=(
+                "Event type filter applied. 'all' when no type filter was "
+                "specified (aggregate across all types)."
+            )
         ),
     ]
     interval: str
-    from_: Annotated[AwareDatetime, Field(alias='from')]
+    from_: Annotated[AwareDatetime, Field(alias="from")]
     to: AwareDatetime
     series: list[MetricPoint]
 
@@ -68,7 +71,7 @@ class TopResponse(BaseModel):
         populate_by_name=True,
     )
     dimension: str
-    from_: Annotated[AwareDatetime, Field(alias='from')]
+    from_: Annotated[AwareDatetime, Field(alias="from")]
     to: AwareDatetime
     items: list[TopItem]
 

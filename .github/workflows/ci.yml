@@ -1,0 +1,136 @@
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+
+permissions:
+  contents: read
+
+jobs:
+  actionlint:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install and run actionlint
+        run: |
+          set -euo pipefail
+          bash <(curl -sSf https://raw.githubusercontent.com/rhysd/actionlint/main/scripts/download-actionlint.bash)
+          ./actionlint -color
+
+  backend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/backend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: astral-sh/setup-uv@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: uv sync --frozen
+      - name: Lint
+        run: uv run ruff check .
+      - name: Format check
+        run: uv run ruff format --check .
+      - name: Tests (testcontainers spin Postgres+Redis via Docker)
+        run: uv run pytest
+
+  frontend:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/frontend
+    steps:
+      - uses: actions/checkout@v4
+      - uses: pnpm/action-setup@v4
+        with:
+          version: "10.28.1"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+          cache: pnpm
+          cache-dependency-path: apps/frontend/pnpm-lock.yaml
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
+      - name: Lint
+        run: pnpm lint
+      - name: Build
+        run: pnpm build
+
+  infra-static:
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: apps/infra
+    steps:
+      - uses: actions/checkout@v4
+      - uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: "1.9.8"
+          terraform_wrapper: false
+      - uses: terraform-linters/setup-tflint@v4
+        with:
+          tflint_version: latest
+      - name: Initialize tflint plugins
+        run: tflint --init
+      - name: Static verification (fmt-check + validate + tflint + terraform test)
+        run: make verify
+
+  k8s-render:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-kubectl@v4
+      - name: Install kubeconform + yq
+        run: |
+          set -euo pipefail
+          curl -sSLo /tmp/kubeconform.tar.gz https://github.com/yannh/kubeconform/releases/latest/download/kubeconform-linux-amd64.tar.gz
+          sudo tar -xzf /tmp/kubeconform.tar.gz -C /usr/local/bin kubeconform
+          sudo curl -sSLo /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+      - name: Render + schema + delta assertions
+        run: bash k8s/tests/render.sh
+
+  docker-build:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: docker/setup-buildx-action@v3
+        with:
+          # Use the BuildKit embedded in the runner's Docker Engine instead of
+          # the default docker-container driver, which must pull moby/buildkit
+          # from Docker Hub at boot (that pull was timing out). These are
+          # push:false validation builds, so the docker driver is sufficient.
+          driver: docker
+      - name: Build API image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/backend
+          push: false
+          tags: pulseboard/api:ci
+      - name: Build frontend image (no push)
+        uses: docker/build-push-action@v6
+        with:
+          context: apps/frontend
+          push: false
+          tags: pulseboard/frontend:ci
+
+  e2e-kind:
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: azure/setup-kubectl@v4
+      - uses: helm/kind-action@v1
+        with:
+          install_only: true
+      - name: Install yq
+        run: |
+          set -euo pipefail
+          sudo curl -sSLo /usr/local/bin/yq https://github.com/mikefarah/yq/releases/latest/download/yq_linux_amd64
+          sudo chmod +x /usr/local/bin/yq
+      - name: Kind end-to-end (build, load, deploy, ingest, assert rollup)
+        run: bash k8s/tests/e2e_local.sh
