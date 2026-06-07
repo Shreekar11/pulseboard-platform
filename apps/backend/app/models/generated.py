@@ -46,7 +46,10 @@ class MetricsResponse(BaseModel):
     type: Annotated[
         str,
         Field(
-            description="Event type filter applied. 'all' when no type filter was specified (aggregate across all types)."
+            description=(
+                "Event type filter applied. 'all' when no type filter was "
+                "specified (aggregate across all types)."
+            )
         ),
     ]
     interval: str

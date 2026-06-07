@@ -41,7 +41,7 @@ export function EventsOverTimeCard({
   );
 
   const total = React.useMemo(
-    () => data?.series.reduce<number>((sum, p) => sum + p.count, 0) ?? 0,
+    () => data?.series.reduce((sum: number, p) => sum + p.count, 0) ?? 0,
     [data],
   );
 
