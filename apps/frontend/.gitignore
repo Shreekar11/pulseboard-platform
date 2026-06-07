@@ -41,5 +41,5 @@ yarn-error.log*
 next-env.d.ts
 
 # Generated OpenAPI types (run `make generate` to regenerate)
-/lib/generated/
+# /lib/generated/
 /openapi/openapi.json
